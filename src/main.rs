@@ -1,55 +1,33 @@
 mod ethernet;
 mod mac_table;
 mod vswitch;
+mod transport;
 
 use ethernet::{EthernetFrame, MacAddress};
 use vswitch::VSwitch;
 
-fn main() {
+#[tokio::main]
+async fn main() {
     let mac_a = MacAddress::new([0x02, 0x00, 0x00, 0x00, 0x00, 0x01]);
     let mac_b = MacAddress::new([0x02, 0x00, 0x00, 0x00, 0x00, 0x02]);
-    let mac_unknown = MacAddress::new([0x02, 0x00, 0x00, 0x00, 0x00, 0x03]);
 
     let mut switch = VSwitch::new(vec![1, 2, 3]);
 
-    println!("VNet-L2 switch started");
-    println!("Ports: 1, 2, 3");
-
-    let frame_a = EthernetFrame::new(
+    let frame = EthernetFrame::new(
         mac_b,
         mac_a,
         0x0800,
-        b"Hello from port 1".to_vec(),
+        b"Hello from VNet-L2".to_vec(),
     );
 
-    let forwarded = switch.forward(1, &frame_a);
+    let forwarded = switch.forward(1, &frame);
 
-    println!("Unknown destination:");
-    println!("Frame from port 1 forwarded to: {:?}", forwarded);
+    println!("VNet-L2 Layer 2 switch");
+    println!("Source MAC: {}", frame.source);
+    println!("Destination MAC: {}", frame.destination);
+    println!("Forwarded ports: {:?}", forwarded);
 
-    let frame_b = EthernetFrame::new(
-        mac_a,
-        mac_b,
-        0x0800,
-        b"Reply from port 2".to_vec(),
-    );
-
-    let forwarded = switch.forward(2, &frame_b);
-
-    println!("Known destination:");
-    println!("Frame from port 2 forwarded to: {:?}", forwarded);
-
-    let broadcast = EthernetFrame::new(
-        MacAddress::broadcast(),
-        mac_a,
-        0x0800,
-        b"Broadcast message".to_vec(),
-    );
-
-    let forwarded = switch.forward(1, &broadcast);
-
-    println!("Broadcast:");
-    println!("Frame from port 1 forwarded to: {:?}", forwarded);
-
-    let _ = mac_unknown;
+    if let Err(error) = transport::start_udp_server("127.0.0.1:9000").await {
+        eprintln!("UDP server error: {}", error);
+    }
 }
